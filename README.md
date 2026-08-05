@@ -1,0 +1,1 @@
+# smiv-intelligence-platform
