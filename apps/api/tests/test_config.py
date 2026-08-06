@@ -9,6 +9,13 @@ def test_comma_separated_cors_origins() -> None:
     assert settings.cors_origins == ["https://one.example", "https://two.example"]
 
 
+def test_neon_sslmode_is_normalized_for_asyncpg() -> None:
+    settings = Settings(
+        database_url="postgresql+asyncpg://user:secret@db.example/app?sslmode=require"
+    )
+    assert settings.database_url.endswith("?ssl=require")
+
+
 def test_production_rejects_example_secrets() -> None:
     with pytest.raises(ValidationError):
         Settings(app_env="production")

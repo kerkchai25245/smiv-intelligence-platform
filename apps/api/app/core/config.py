@@ -31,6 +31,13 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_asyncpg_ssl(cls, value: object) -> object:
+        if isinstance(value, str) and value.startswith("postgresql+asyncpg://"):
+            return value.replace("sslmode=", "ssl=")
+        return value
+
     @model_validator(mode="after")
     def secure_production_secrets(self) -> "Settings":
         if self.app_env == "production":
