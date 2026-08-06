@@ -8,7 +8,16 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
   const headers = new Headers(init?.headers)
   if (token) headers.set('Authorization', `Bearer ${token}`)
   const response = await fetch(`${API_BASE}/v1${path}`, { ...init, headers })
-  if (!response.ok) throw new Error((await response.json()).detail ?? 'Request failed')
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`
+    try {
+      const payload = await response.json() as { detail?: string }
+      if (payload.detail) message = payload.detail
+    } catch {
+      // Keep the status-based message when the server returns plain text or HTML.
+    }
+    throw new Error(message)
+  }
   return response.json() as Promise<T>
 }
 
