@@ -22,6 +22,11 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
     } catch {
       // Keep the status-based message when the server returns plain text or HTML.
     }
+    if (response.status === 401 && token) {
+      sessionStorage.removeItem('smiv.access_token')
+      window.dispatchEvent(new Event('smiv:auth-expired'))
+      throw new Error('กรุณาเข้าสู่ระบบใหม่')
+    }
     throw new Error(message)
   }
   return response.json() as Promise<T>

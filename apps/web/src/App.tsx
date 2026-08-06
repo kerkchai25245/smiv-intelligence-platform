@@ -2,7 +2,7 @@ import InsightsOutlined from '@mui/icons-material/InsightsOutlined'
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined'
 import { AppBar, Box, Button, Container, Stack, Toolbar, Typography } from '@mui/material'
 import { GoogleLogin } from '@react-oauth/google'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from './api'
 import { Dashboard } from './Dashboard'
 
@@ -11,6 +11,11 @@ const TOKEN_KEY = 'smiv.access_token'
 export function App() {
   const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY) ?? '')
   const [error, setError] = useState('')
+  useEffect(() => {
+    const handleExpired = () => { sessionStorage.removeItem(TOKEN_KEY); setToken(''); setError('กรุณาเข้าสู่ระบบใหม่ เนื่องจากรหัสเข้าสู่ระบบหมดอายุ') }
+    window.addEventListener('smiv:auth-expired', handleExpired)
+    return () => window.removeEventListener('smiv:auth-expired', handleExpired)
+  }, [])
   if (!token) return <Box component="main" sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 3 }}>
     <Stack alignItems="center" spacing={3} sx={{ maxWidth: 520, textAlign: 'center' }}>
       <InsightsOutlined sx={{ fontSize: 64, color: 'primary.main' }} />
