@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     app_env: str = "development"
     log_level: str = "INFO"
     database_url: str = "postgresql+asyncpg://smiv:change-me@localhost:5432/smiv"
+    jwt_secret: str = "development-only-change-me"
+    jwt_expire_minutes: int = 60
+    pii_hash_secret: str = "development-only-change-me"
+    google_client_id: str = ""
+    bootstrap_admin_email: str = "admin@smiv.local"
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080"]
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -28,4 +33,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-

@@ -23,4 +23,3 @@ async def readiness() -> dict[str, str]:
             detail="Database unavailable",
         ) from exc
     return {"status": "ready"}
-

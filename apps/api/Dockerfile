@@ -6,9 +6,12 @@ WORKDIR /app
 RUN groupadd --system app && useradd --system --gid app app
 COPY pyproject.toml ./
 COPY app ./app
+COPY alembic.ini ./
+COPY alembic ./alembic
+COPY start.sh ./start.sh
 RUN pip install --no-cache-dir .
+RUN chmod +x ./start.sh
 
 USER app
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]
-
+CMD ["./start.sh"]
