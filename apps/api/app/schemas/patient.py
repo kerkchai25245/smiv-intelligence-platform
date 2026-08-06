@@ -16,8 +16,8 @@ class PatientRead(BaseModel):
     province: str | None
     district: str | None
     subdistrict: str | None
-    latitude: str | None
-    longitude: str | None
+    latitude: float | None
+    longitude: float | None
     v1: bool
     v2: bool
     v3: bool
@@ -39,8 +39,8 @@ class PatientUpdate(BaseModel):
     province: str | None = Field(default=None, max_length=120)
     district: str | None = Field(default=None, max_length=120)
     subdistrict: str | None = Field(default=None, max_length=120)
-    latitude: str | None = None
-    longitude: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     v1: bool | None = None
     v2: bool | None = None
     v3: bool | None = None

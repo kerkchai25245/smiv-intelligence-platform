@@ -1,6 +1,6 @@
 # SMI-V Intelligence Platform
 
-Production-oriented Phase 1 foundation for the SMI-V dashboard platform. The monorepo contains a React web application, a FastAPI service, PostgreSQL, an Nginx gateway, container orchestration, and continuous integration.
+Production-oriented platform for secure SMI-V data operations and executive intelligence. It supports Google authentication, role-based access, privacy-preserving Excel upserts, record history, audit trails, search, charts, GIS, V1–V4 union analysis, explainable insights, backup, and controlled deployment.
 
 ## Architecture
 
@@ -10,9 +10,19 @@ Production-oriented Phase 1 foundation for the SMI-V dashboard platform. The mon
 - `.github/workflows`: lint, type-check, test, and build checks
 - `docs`: architecture and operating notes
 
+## Capabilities
+
+- Google OAuth login with JWT sessions and viewer/editor/admin roles
+- Excel import with Thai/English headers and upsert by validated Thai national ID
+- HMAC identifiers, history snapshots, and immutable audit events
+- Executive totals, provincial distribution, patient search, and advanced V1–V4 filters
+- AG Grid records, Apache ECharts analytics, Leaflet GIS, and all 15 V1–V4 unions
+- Deterministic intelligence brief with an explicit engine label
+- Alembic migrations, health/readiness probes, production hardening, backup/restore, and tagged deployment workflow
+
 ## Run with Docker
 
-1. Copy `.env.example` to `.env` and change `POSTGRES_PASSWORD`.
+1. Copy `.env.example` to `.env` and replace every example password/secret.
 2. Run `docker compose up --build`.
 3. Open <http://localhost:8080>.
 4. API documentation is available at <http://localhost:8080/api/docs>.
@@ -48,5 +58,4 @@ cd apps/api && ruff check . && pytest
 cd apps/web && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 
-See [docs/architecture.md](docs/architecture.md) and [docs/development.md](docs/development.md) for more detail.
-
+See [architecture](docs/architecture.md), [data import](docs/data-import.md), [development](docs/development.md), and [deployment](docs/deployment.md) for more detail.

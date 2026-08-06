@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -29,8 +29,8 @@ class Patient(UUIDMixin, TimestampMixin, Base):
     province: Mapped[str | None] = mapped_column(String(120), index=True, nullable=True)
     district: Mapped[str | None] = mapped_column(String(120), index=True, nullable=True)
     subdistrict: Mapped[str | None] = mapped_column(String(120), index=True, nullable=True)
-    latitude: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    longitude: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     v1: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     v2: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     v3: Mapped[bool] = mapped_column(Boolean, default=False, index=True)

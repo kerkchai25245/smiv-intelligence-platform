@@ -68,8 +68,12 @@ async def import_excel(
                 "province": str(known["province"] or "").strip() or None,
                 "district": str(known["district"] or "").strip() or None,
                 "subdistrict": str(known["subdistrict"] or "").strip() or None,
-                "latitude": str(known["latitude"] or "").strip() or None,
-                "longitude": str(known["longitude"] or "").strip() or None,
+                "latitude": float(known["latitude"])
+                if known["latitude"] not in (None, "")
+                else None,
+                "longitude": float(known["longitude"])
+                if known["longitude"] not in (None, "")
+                else None,
                 "v1": parse_bool(known["v1"]),
                 "v2": parse_bool(known["v2"]),
                 "v3": parse_bool(known["v3"]),

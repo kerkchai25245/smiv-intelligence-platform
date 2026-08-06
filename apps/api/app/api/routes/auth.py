@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +19,10 @@ async def google_login(
 ) -> TokenResponse:
     claims = verify_google_token(body.credential)
     email = str(claims.get("email", "")).lower()
+    if not email or claims.get("email_verified") is not True:
+        raise HTTPException(status_code=401, detail="A verified Google email is required")
+    if settings.google_allowed_domain and claims.get("hd") != settings.google_allowed_domain:
+        raise HTTPException(status_code=403, detail="Google account domain is not allowed")
     user = await session.scalar(select(User).where(User.email == email))
     if user is None:
         role = "admin" if email == settings.bootstrap_admin_email.lower() else "viewer"

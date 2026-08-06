@@ -22,6 +22,11 @@ def normalize_national_id(value: str) -> str:
     digits = "".join(character for character in value if character.isdigit())
     if len(digits) != 13:
         raise ValueError("Thai national ID must contain 13 digits")
+    checksum = (
+        11 - sum(int(digit) * (13 - index) for index, digit in enumerate(digits[:12])) % 11
+    ) % 10
+    if checksum != int(digits[-1]):
+        raise ValueError("Thai national ID checksum is invalid")
     return digits
 
 
@@ -60,6 +65,9 @@ def _decode_token(token: str) -> dict[str, object]:
         if not hmac.compare_digest(expected, actual):
             raise ValueError("signature")
         data = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        metadata = json.loads(base64.urlsafe_b64decode(header + "=" * (-len(header) % 4)))
+        if metadata != {"alg": "HS256", "typ": "JWT"}:
+            raise ValueError("unsupported header")
         if int(data["exp"]) < int(datetime.now(UTC).timestamp()):
             raise ValueError("expired")
         return data
