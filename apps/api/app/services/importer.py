@@ -40,12 +40,26 @@ ALIASES = {
 
 
 def _canonical(header: object) -> str:
-    normalized = str(header or "").strip().lower()
+    normalized = str(header or "").replace("\ufeff", "").strip().lower()
+    compact = re.sub(r"[\s_\-./()]+", "", normalized)
     for canonical, aliases in ALIASES.items():
-        compact = re.sub(r"[\s_\-./()]+", "", normalized)
         if any(compact == re.sub(r"[\s_\-./()]+", "", alias) for alias in aliases):
             return canonical
+    if "ประชาชน" in compact and ("เลข" in compact or "บัตร" in compact):
+        return "national_id"
     return normalized
+
+
+def _find_headers(rows: Any, limit: int = 20) -> tuple[list[str], int]:
+    for row_number, values in enumerate(rows, start=1):
+        headers = [_canonical(value) for value in values]
+        if "national_id" in headers:
+            return headers, row_number
+        if row_number >= limit:
+            break
+    raise ValueError(
+        "Missing national_id/เลขบัตรประชาชน column in the first 20 rows"
+    )
 
 
 async def import_excel(
@@ -59,11 +73,9 @@ async def import_excel(
     workbook = load_workbook(BytesIO(content), read_only=True, data_only=True)
     sheet = workbook.active
     rows = sheet.iter_rows(values_only=True)
-    headers = [_canonical(value) for value in next(rows, [])]
-    if "national_id" not in headers:
-        raise ValueError("Missing national_id/เลขบัตรประชาชน column")
+    headers, header_row = _find_headers(rows)
 
-    for row_number, values in enumerate(rows, start=2):
+    for row_number, values in enumerate(rows, start=header_row + 1):
         raw: dict[str, Any] = dict(zip(headers, values, strict=False))
         try:
             digits = normalize_national_id(str(raw.get("national_id", "")))
