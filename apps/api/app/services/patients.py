@@ -20,6 +20,7 @@ def patient_snapshot(patient: Patient) -> dict[str, Any]:
         "v2": patient.v2,
         "v3": patient.v3,
         "v4": patient.v4,
+        "status": patient.status,
         "extra_data": patient.extra_data,
         "version": patient.version,
     }

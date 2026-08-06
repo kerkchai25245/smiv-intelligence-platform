@@ -63,27 +63,29 @@ def _find_headers(rows: Any, limit: int = 20) -> tuple[list[str], int]:
     )
 
 
-async def import_excel(
-    session: AsyncSession, content: bytes, filename: str, user: User
-) -> ImportJob:
-    job = ImportJob(filename=filename, uploaded_by=user.id, status="processing")
-    session.add(job)
-    await session.flush()
+def _national_id_text(value: object) -> str:
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value or "")
+
+
+def _parse_excel(content: bytes) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]], int]:
     from openpyxl import load_workbook
 
     workbook = load_workbook(BytesIO(content), read_only=True, data_only=True)
-    sheet = workbook.active
-    rows = sheet.iter_rows(values_only=True)
+    rows = workbook.active.iter_rows(values_only=True)
     headers, header_row = _find_headers(rows)
-
+    parsed: dict[str, dict[str, Any]] = {}
+    errors: list[dict[str, Any]] = []
+    total_rows = 0
     for row_number, values in enumerate(rows, start=header_row + 1):
+        if not any(value not in (None, "") for value in values):
+            continue
+        total_rows += 1
         raw: dict[str, Any] = dict(zip(headers, values, strict=False))
         try:
-            digits = normalize_national_id(str(raw.get("national_id", "")))
+            digits = normalize_national_id(_national_id_text(raw.get("national_id")))
             national_hash = hash_national_id(digits)
-            patient = await session.scalar(
-                select(Patient).where(Patient.national_id_hash == national_hash)
-            )
             known = {key: raw.get(key) for key in ALIASES}
             extras = {key: value for key, value in raw.items() if key not in ALIASES}
             first_name = str(known["first_name"] or "").strip()
@@ -93,7 +95,13 @@ async def import_excel(
                 name_parts = full_name.split()
                 first_name = first_name or name_parts[0]
                 last_name = last_name or " ".join(name_parts[1:])
-            fields = {
+            if not first_name or not last_name:
+                raise ValueError("first_name and last_name are required")
+            if national_hash in parsed:
+                raise ValueError("Duplicate national ID in this file")
+            parsed[national_hash] = {
+                "national_id_hash": national_hash,
+                "national_id_last4": digits[-4:],
                 "first_name": first_name,
                 "last_name": last_name,
                 "date_of_birth": parse_date(known["date_of_birth"]),
@@ -113,26 +121,57 @@ async def import_excel(
                 "v4": parse_bool(known["v4"]),
                 "extra_data": extras,
             }
-            if not fields["first_name"] or not fields["last_name"]:
-                raise ValueError("first_name and last_name are required")
-            if patient is None:
-                patient = Patient(
-                    national_id_hash=national_hash,
-                    national_id_last4=digits[-4:],
-                    **fields,
-                )
-                session.add(patient)
-                await session.flush()
-                job.created_count += 1
-            else:
-                session.add(make_version(patient, user.id))
-                for key, value in fields.items():
-                    setattr(patient, key, value)
-                patient.version += 1
-                job.updated_count += 1
         except (TypeError, ValueError) as exc:
-            job.skipped_count += 1
-            job.errors = [*job.errors, {"row": row_number, "message": str(exc)}]
+            errors.append({"row": row_number, "message": str(exc)})
+    return parsed, errors, total_rows
+
+
+async def preview_excel(session: AsyncSession, content: bytes) -> dict[str, Any]:
+    parsed, errors, total_rows = _parse_excel(content)
+    existing = set(
+        await session.scalars(
+            select(Patient.national_id_hash).where(
+                Patient.national_id_hash.in_(list(parsed))
+            )
+        )
+    ) if parsed else set()
+    return {
+        "total_rows": total_rows,
+        "valid_rows": len(parsed),
+        "created_count": len(set(parsed) - existing),
+        "updated_count": len(existing),
+        "skipped_count": len(errors),
+        "errors": errors[:100],
+    }
+
+
+async def import_excel(
+    session: AsyncSession, content: bytes, filename: str, user: User
+) -> ImportJob:
+    job = ImportJob(filename=filename, uploaded_by=user.id, status="processing")
+    session.add(job)
+    await session.flush()
+    parsed, errors, _ = _parse_excel(content)
+    existing_patients = list(
+        await session.scalars(
+            select(Patient).where(Patient.national_id_hash.in_(list(parsed)))
+        )
+    ) if parsed else []
+    existing = {patient.national_id_hash: patient for patient in existing_patients}
+    for national_hash, values in parsed.items():
+        patient = existing.get(national_hash)
+        if patient is None:
+            session.add(Patient(**values))
+            job.created_count += 1
+        else:
+            session.add(make_version(patient, user.id))
+            for key, value in values.items():
+                if key not in {"national_id_hash", "national_id_last4"}:
+                    setattr(patient, key, value)
+            patient.version += 1
+            job.updated_count += 1
+    job.skipped_count = len(errors)
+    job.errors = errors[:100]
     job.status = "completed_with_errors" if job.errors else "completed"
     add_audit(
         session,

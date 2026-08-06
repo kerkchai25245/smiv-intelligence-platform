@@ -2,11 +2,11 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.core.security import current_user, require_roles
+from app.core.security import current_user, hash_national_id, require_roles
 from app.models import Patient, PatientVersion, User
 from app.schemas.patient import PatientPage, PatientRead, PatientUpdate, VersionRead
 from app.services.audit import add_audit
@@ -19,26 +19,35 @@ router = APIRouter(prefix="/patients", tags=["patients"])
 async def list_patients(
     session: Annotated[AsyncSession, Depends(get_session)],
     _: Annotated[User, Depends(current_user)],
-    search: str | None = None,
-    province: str | None = None,
+    national_id: str | None = None,
+    first_name: str | None = None,
+    last_name: str | None = None,
     district: str | None = None,
-    v1: bool | None = None,
-    v2: bool | None = None,
-    v3: bool | None = None,
-    v4: bool | None = None,
+    subdistrict: str | None = None,
+    v: Annotated[list[str] | None, Query()] = None,
+    status: str | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> PatientPage:
     filters = []
-    if search:
-        term = f"%{search.strip()}%"
-        filters.append(or_(Patient.first_name.ilike(term), Patient.last_name.ilike(term)))
-    for column, value in ((Patient.province, province), (Patient.district, district)):
+    if national_id:
+        try:
+            filters.append(Patient.national_id_hash == hash_national_id(national_id))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if first_name:
+        filters.append(Patient.first_name.ilike(f"%{first_name.strip()}%"))
+    if last_name:
+        filters.append(Patient.last_name.ilike(f"%{last_name.strip()}%"))
+    for column, value in ((Patient.district, district), (Patient.subdistrict, subdistrict)):
         if value:
             filters.append(column == value)
-    for column, value in ((Patient.v1, v1), (Patient.v2, v2), (Patient.v3, v3), (Patient.v4, v4)):
-        if value is not None:
-            filters.append(column.is_(value))
+    v_columns = {"v1": Patient.v1, "v2": Patient.v2, "v3": Patient.v3, "v4": Patient.v4}
+    for selected in v or []:
+        if selected.lower() in v_columns:
+            filters.append(v_columns[selected.lower()].is_(True))
+    if status:
+        filters.append(Patient.status == status)
     total = await session.scalar(select(func.count()).select_from(Patient).where(*filters))
     result = await session.scalars(
         select(Patient)
@@ -53,6 +62,29 @@ async def list_patients(
         page=page,
         page_size=page_size,
     )
+
+
+@router.get("/filters")
+async def patient_filters(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[User, Depends(current_user)],
+) -> dict[str, list[str]]:
+    districts = await session.scalars(
+        select(Patient.district)
+        .where(Patient.district.is_not(None))
+        .distinct()
+        .order_by(Patient.district)
+    )
+    subdistricts = await session.scalars(
+        select(Patient.subdistrict)
+        .where(Patient.subdistrict.is_not(None))
+        .distinct()
+        .order_by(Patient.subdistrict)
+    )
+    return {
+        "districts": [value for value in districts if value],
+        "subdistricts": [value for value in subdistricts if value],
+    }
 
 
 @router.patch("/{patient_id}", response_model=PatientRead)

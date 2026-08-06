@@ -4,9 +4,17 @@ import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import { App } from './App'
 import './styles.css'
-import 'leaflet/dist/leaflet.css'
 
-const theme = createTheme({ palette: { mode: 'dark', primary: { main: '#39d0bb' }, background: { default: '#07111e', paper: '#0d1c2a' } }, typography: { fontFamily: 'Inter, system-ui, sans-serif' }, shape: { borderRadius: 14 } })
+const theme = createTheme({
+  palette: { mode: 'dark', primary: { main: '#43d7c0' }, secondary: { main: '#8291ff' }, background: { default: '#06111d', paper: '#102331' }, success: { main: '#62d482' } },
+  typography: { fontFamily: 'Inter, "Noto Sans Thai", system-ui, sans-serif', h3: { letterSpacing: '-.04em' }, h4: { letterSpacing: '-.03em' } },
+  shape: { borderRadius: 16 },
+  components: {
+    MuiCard: { styleOverrides: { root: { border: '1px solid rgba(148,180,200,.12)', boxShadow: '0 18px 45px rgba(0,0,0,.18)', backgroundImage: 'none' } } },
+    MuiTableHead: { styleOverrides: { root: { background: 'rgba(67,215,192,.07)' } } },
+    MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: { textTransform: 'none', fontWeight: 750 } } },
+  },
+})
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

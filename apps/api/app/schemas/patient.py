@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,6 +23,7 @@ class PatientRead(BaseModel):
     v2: bool
     v3: bool
     v4: bool
+    status: str
     version: int
     updated_at: datetime
 
@@ -45,6 +47,7 @@ class PatientUpdate(BaseModel):
     v2: bool | None = None
     v3: bool | None = None
     v4: bool | None = None
+    status: Literal["active", "deceased", "moved"] | None = None
 
 
 class VersionRead(BaseModel):

@@ -35,6 +35,7 @@ class Patient(UUIDMixin, TimestampMixin, Base):
     v2: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     v3: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     v4: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    status: Mapped[str] = mapped_column(String(30), default="active", index=True)
     extra_data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
 
