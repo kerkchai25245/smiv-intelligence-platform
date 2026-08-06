@@ -1,7 +1,7 @@
 import HubOutlined from '@mui/icons-material/HubOutlined'
 import { Alert, Box, Card, CardContent, Chip, Stack, Typography } from '@mui/material'
 import { useEffect, useState } from 'react'
-import { api } from './api'
+import { api, type PatientQuery } from './api'
 
 const VERSIONS = ['v1', 'v2', 'v3', 'v4']
 const COLORS = ['#2f80ed', '#16a05d', '#f47b20', '#8e44c5']
@@ -14,27 +14,26 @@ const POSITIONS: Record<string, [number, number]> = {
   'V1&V2&V3&V4': [436, 252],
 }
 
-export function IntelligencePanel({ token }: { token: string }) {
+export function IntelligencePanel({ token, query }: { token: string; query: PatientQuery }) {
   const [unions, setUnions] = useState<Record<string, number>>({})
-  const [selected, setSelected] = useState<string[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api.unions(token, selected).then((data) => { setUnions(data); setError('') }).catch((reason: Error) => setError(reason.message))
-  }, [token, selected])
+    api.unions(token, query).then((data) => { setUnions(data); setError('') }).catch((reason: Error) => setError(reason.message))
+  }, [token, query])
 
   const entries = Object.entries(unions).sort(([a], [b]) => a.split('&').length - b.split('&').length || a.localeCompare(b))
   const total = entries.reduce((sum, [, value]) => sum + value, 0)
   const membershipTotals = VERSIONS.map((version, index) => entries.reduce((sum, [name, value]) => name.includes(`V${index + 1}`) ? sum + value : sum, 0))
   const byDepth = [1, 2, 3, 4].map((depth) => entries.filter(([name]) => name.split('&').length === depth).reduce((sum, [, value]) => sum + value, 0))
-  const toggle = (value: string) => setSelected((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value])
+  const activeFilters = [query.gender, query.district, query.subdistrict, ...(query.versions ?? []).map((value) => value.toUpperCase())].filter(Boolean)
 
   return <Card sx={{ overflow: 'hidden' }}><CardContent>
     <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2} mb={2}>
       <Stack direction="row" alignItems="flex-start" spacing={1}><HubOutlined color="primary" /><Box><Typography variant="h5" fontWeight={900}>สรุปการจัดกลุ่ม V1–V4</Typography><Typography variant="body2" color="text.secondary">วงกลมแสดงจำนวนผู้รับบริการในแต่ละกลุ่มและส่วนที่อยู่ร่วมกัน</Typography></Box></Stack>
       <Box sx={{ px: 2.5, py: 1, borderRadius: 2, bgcolor: 'rgba(47,128,237,.14)', textAlign: 'center', minWidth: 150 }}><Typography variant="caption" color="text.secondary">จำนวนทั้งหมด</Typography><Typography variant="h4" fontWeight={900}>{total.toLocaleString()} <Typography component="span" fontWeight={700}>คน</Typography></Typography></Box>
     </Stack>
-    <Stack direction="row" gap={1} flexWrap="wrap" mb={2}><Chip label="ทั้งหมด" clickable color={!selected.length ? 'primary' : 'default'} onClick={() => setSelected([])} />{VERSIONS.map((value) => <Chip key={value} label={value.toUpperCase()} clickable variant={selected.includes(value) ? 'filled' : 'outlined'} color={selected.includes(value) ? 'primary' : 'default'} onClick={() => toggle(value)} />)}</Stack>
+    <Stack direction="row" gap={1} flexWrap="wrap" mb={2}><Chip label={activeFilters.length ? 'ผลลัพธ์ตามตัวกรอง' : 'ข้อมูลทั้งหมด'} color="primary" />{activeFilters.map((value) => <Chip key={String(value)} label={String(value)} variant="outlined" />)}{activeFilters.length > 0 && <Typography variant="caption" color="text.secondary" alignSelf="center">กราฟและรายชื่อใช้ตัวกรองชุดเดียวกัน</Typography>}</Stack>
     {error ? <Alert severity="error">{error}</Alert> : <Box>
       <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
         <SectionTitle>แผนภาพวงกลม 4 วง (Venn Diagram)</SectionTitle>
@@ -44,7 +43,7 @@ export function IntelligencePanel({ token }: { token: string }) {
           <ellipse cx="374" cy="296" rx="310" ry="116" transform="rotate(105 374 296)" fill="rgba(22,160,93,.15)" stroke={COLORS[1]} strokeWidth="2.5" />
           <ellipse cx="478" cy="306" rx="280" ry="106" transform="rotate(11 478 306)" fill="rgba(244,123,32,.15)" stroke={COLORS[2]} strokeWidth="2.5" />
           <ellipse cx="391" cy="352" rx="267" ry="128" transform="rotate(105 391 352)" fill="rgba(142,68,197,.15)" stroke={COLORS[3]} strokeWidth="2.5" />
-          {Object.entries(POSITIONS).map(([name, [x, y]]) => <g key={name} style={{ paintOrder: 'stroke', stroke: '#102433', strokeWidth: 5, strokeLinejoin: 'round' }}>
+          {Object.entries(POSITIONS).map(([name, [x, y]]) => (unions[name] ?? 0) > 0 && <g key={name} style={{ paintOrder: 'stroke', stroke: '#102433', strokeWidth: 5, strokeLinejoin: 'round' }}>
             {name.includes('&') && <text x={x} y={y - 7} textAnchor="middle" fill="#c8d7e3" fontSize="10" fontWeight="700">{name.replaceAll('&', '+')}</text>}
             <text x={x} y={y + 10} textAnchor="middle" fill={name === 'V1&V2&V3&V4' ? '#ff6565' : '#fff'} fontSize="18" fontWeight="900">{unions[name] ?? 0}</text>
           </g>)}
@@ -53,7 +52,7 @@ export function IntelligencePanel({ token }: { token: string }) {
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, p: 1.5 }}>{byDepth.map((value, index) => <Box key={index} sx={{ p: 1.2, borderRadius: 2, textAlign: 'center', bgcolor: `${COLORS[index]}18` }}><Typography variant="caption">อยู่ {index + 1} กลุ่ม</Typography><Typography fontWeight={900}>{value.toLocaleString()} คน</Typography></Box>)}</Box>
       </Box>
     </Box>}
-    <Typography variant="caption" color="text.secondary" display="block" mt={1.5}>หมายเหตุ: ตัวเลขในพื้นที่ซ้อนกันคือจำนวนผู้ที่อยู่ในกลุ่มดังกล่าวพร้อมกัน และแต่ละคนถูกนับเพียงหนึ่งส่วน</Typography>
+    <Typography variant="caption" color="text.secondary" display="block" mt={1.5}>หมายเหตุ: ซ่อนสับเซตที่มีค่า 0 เพื่อให้อ่านง่าย ตัวเลขในพื้นที่ซ้อนกันคือจำนวนผู้ที่อยู่ในกลุ่มดังกล่าวพร้อมกัน และแต่ละคนถูกนับเพียงหนึ่งส่วน</Typography>
   </CardContent></Card>
 }
 

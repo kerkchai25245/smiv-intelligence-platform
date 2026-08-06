@@ -24,6 +24,7 @@ async def list_patients(
     last_name: str | None = None,
     district: str | None = None,
     subdistrict: str | None = None,
+    gender: str | None = None,
     v: Annotated[list[str] | None, Query()] = None,
     status: str | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
@@ -42,6 +43,8 @@ async def list_patients(
     for column, value in ((Patient.district, district), (Patient.subdistrict, subdistrict)):
         if value:
             filters.append(column == value)
+    if gender:
+        filters.append(Patient.gender == gender)
     v_columns = {"v1": Patient.v1, "v2": Patient.v2, "v3": Patient.v3, "v4": Patient.v4}
     for selected in v or []:
         if selected.lower() in v_columns:
@@ -81,9 +84,16 @@ async def patient_filters(
         .distinct()
         .order_by(Patient.subdistrict)
     )
+    genders = await session.scalars(
+        select(Patient.gender)
+        .where(Patient.gender.is_not(None))
+        .distinct()
+        .order_by(Patient.gender)
+    )
     return {
         "districts": [value for value in districts if value],
         "subdistricts": [value for value in subdistricts if value],
+        "genders": [value for value in genders if value],
     }
 
 

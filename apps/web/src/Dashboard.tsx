@@ -13,14 +13,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, type ImportIssue, type ImportPreview, type ImportResult, type Patient, type PatientFilters, type PatientQuery, type Summary } from './api'
 import { IntelligencePanel } from './IntelligencePanel'
 
-const EMPTY_QUERY: PatientQuery = { nationalId: '', firstName: '', lastName: '', district: '', subdistrict: '', versions: [], status: '' }
+const EMPTY_QUERY: PatientQuery = { nationalId: '', firstName: '', lastName: '', district: '', subdistrict: '', gender: '', versions: [], status: '' }
 const STATUS_LABELS = { active: 'ปกติ', deceased: 'ตาย', moved: 'ย้าย' } as const
 
 export function Dashboard({ token }: { token: string }) {
   const [summary, setSummary] = useState<Summary | null>(null)
   const [patients, setPatients] = useState<Patient[]>([])
   const [total, setTotal] = useState(0)
-  const [options, setOptions] = useState<PatientFilters>({ districts: [], subdistricts: [] })
+  const [options, setOptions] = useState<PatientFilters>({ districts: [], subdistricts: [], genders: [] })
   const [draft, setDraft] = useState<PatientQuery>(EMPTY_QUERY)
   const [query, setQuery] = useState<PatientQuery>(EMPTY_QUERY)
   const [page, setPage] = useState(0)
@@ -42,7 +42,7 @@ export function Dashboard({ token }: { token: string }) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [nextSummary, patientPage, nextOptions, issuePage] = await Promise.all([api.summary(token), api.patients(token, { ...query, page: page + 1, pageSize }), api.patientFilters(token), api.importIssues(token)])
+      const [nextSummary, patientPage, nextOptions, issuePage] = await Promise.all([api.summary(token, query), api.patients(token, { ...query, page: page + 1, pageSize }), api.patientFilters(token), api.importIssues(token)])
       setSummary(nextSummary); setPatients(patientPage.items); setTotal(patientPage.total); setOptions(nextOptions); setIssues(issuePage.items); setIssueTotal(issuePage.total); setError('')
     } catch (reason) { setError((reason as Error).message) } finally { setLoading(false) }
   }, [token, query, page, pageSize])
@@ -99,7 +99,7 @@ export function Dashboard({ token }: { token: string }) {
       {Object.entries(summary.categories).map(([key, value]) => <Metric key={key} label={key.toUpperCase()} value={value} />)}
     </Box>
 
-    <IntelligencePanel token={token} />
+    <IntelligencePanel token={token} query={query} />
 
     <Card><CardContent>
       <Stack direction="row" alignItems="center" spacing={1} mb={2}><ManageSearchOutlined color="primary" /><Box><Typography variant="h6" fontWeight={800}>ค้นหาและตัวกรอง</Typography><Typography variant="body2" color="text.secondary">ตัวกรอง V หลายรายการจะแสดงผู้ที่อยู่ครบทุก V ที่เลือก</Typography></Box></Stack>
@@ -109,6 +109,7 @@ export function Dashboard({ token }: { token: string }) {
         <TextField label="นามสกุล (เต็มหรือบางส่วน)" value={draft.lastName} onChange={(e) => setDraft({ ...draft, lastName: e.target.value })} />
         <SelectField label="อำเภอ" value={draft.district ?? ''} items={options.districts} onChange={(value) => setDraft({ ...draft, district: value })} />
         <SelectField label="ตำบล" value={draft.subdistrict ?? ''} items={options.subdistricts} onChange={(value) => setDraft({ ...draft, subdistrict: value })} />
+        <SelectField label="เพศ" value={draft.gender ?? ''} items={options.genders} onChange={(value) => setDraft({ ...draft, gender: value })} />
         <FormControl><InputLabel>สถานะ</InputLabel><Select label="สถานะ" value={draft.status ?? ''} onChange={(e) => setDraft({ ...draft, status: e.target.value })}><MenuItem value="">ทั้งหมด</MenuItem>{Object.entries(STATUS_LABELS).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></FormControl>
       </Box>
       <Typography variant="body2" color="text.secondary" mt={2} mb={1}>เลือกกลุ่ม V (เลือกได้หลายรายการ)</Typography>
