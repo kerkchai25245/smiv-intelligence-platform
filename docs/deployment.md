@@ -1,5 +1,17 @@
 # Production deployment
 
+## Free, low-traffic demo (Render + Neon)
+
+The root `render.yaml` and `Dockerfile.render` deploy the React application and FastAPI
+as one Render Free web service. Use a Neon Free PostgreSQL database and provide its
+asyncpg-compatible connection string as `DATABASE_URL`. Render prompts for the Google OAuth
+client ID and bootstrap administrator email during Blueprint creation.
+
+This option is for demonstrations with synthetic or de-identified data only. Free services
+do not provide the operational, privacy, backup, or compliance guarantees required for real
+patient information. The service sleeps when idle and may take approximately one minute to
+wake on the next request.
+
 ## Server requirements
 
 Use a Linux VM with Docker Engine, Compose v2, Git, a DNS record, and a TLS terminating load balancer or reverse proxy. Keep PostgreSQL private and restrict SSH at the firewall.

@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: smiv-intelligence-platform
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /health/live
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PII_HASH_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_ALLOWED_DOMAIN
+        value: ""
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://smiv-intelligence-platform.onrender.com
