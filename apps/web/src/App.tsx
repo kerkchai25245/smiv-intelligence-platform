@@ -1,45 +1,28 @@
-import { useEffect, useState } from 'react'
+import InsightsOutlined from '@mui/icons-material/InsightsOutlined'
+import LogoutOutlined from '@mui/icons-material/LogoutOutlined'
+import { AppBar, Box, Button, Container, Stack, Toolbar, Typography } from '@mui/material'
+import { GoogleLogin } from '@react-oauth/google'
+import { useState } from 'react'
+import { api } from './api'
+import { Dashboard } from './Dashboard'
 
-type Health = { status: string; service: string; version: string }
+const TOKEN_KEY = 'smiv.access_token'
 
 export function App() {
-  const [health, setHealth] = useState<Health | null>(null)
-  const [offline, setOffline] = useState(false)
-
-  useEffect(() => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api'
-    fetch(`${baseUrl}/v1/health`)
-      .then((response) => {
-        if (!response.ok) throw new Error('API unavailable')
-        return response.json() as Promise<Health>
-      })
-      .then(setHealth)
-      .catch(() => setOffline(true))
-  }, [])
-
-  return (
-    <main>
-      <section className="hero">
-        <p className="eyebrow">SMI-V Intelligence Platform</p>
-        <h1>Operational intelligence, ready to grow.</h1>
-        <p className="summary">
-          The Phase 1 foundation is online. Data ingestion, analytics, and dashboard modules can now be added on a stable platform.
-        </p>
-        <div className={`status ${offline ? 'status--offline' : ''}`} role="status">
-          <span aria-hidden="true" />
-          {health ? `${health.service} v${health.version} connected` : offline ? 'API unavailable' : 'Checking platform health…'}
-        </div>
-      </section>
-      <section className="grid" aria-label="Platform foundations">
-        {[
-          ['Web', 'React + TypeScript'],
-          ['API', 'FastAPI + PostgreSQL'],
-          ['Operations', 'Docker + Nginx'],
-        ].map(([title, detail]) => (
-          <article key={title}><h2>{title}</h2><p>{detail}</p></article>
-        ))}
-      </section>
-    </main>
-  )
+  const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY) ?? '')
+  const [error, setError] = useState('')
+  if (!token) return <Box component="main" sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 3 }}>
+    <Stack alignItems="center" spacing={3} sx={{ maxWidth: 520, textAlign: 'center' }}>
+      <InsightsOutlined sx={{ fontSize: 64, color: 'primary.main' }} />
+      <Typography variant="overline" color="primary">SMI-V Intelligence Platform</Typography>
+      <Typography variant="h2" fontWeight={900}>ข้อมูลที่พร้อม<br />สำหรับการตัดสินใจ</Typography>
+      <Typography color="text.secondary">เข้าสู่ระบบด้วยบัญชี Google ที่ได้รับอนุญาต เพื่อเข้าถึงข้อมูลสุขภาพอย่างปลอดภัย</Typography>
+      {import.meta.env.VITE_GOOGLE_CLIENT_ID ? <GoogleLogin onSuccess={({ credential }) => { if (credential) api.googleLogin(credential).then((result) => { sessionStorage.setItem(TOKEN_KEY, result.access_token); setToken(result.access_token) }).catch((reason: Error) => setError(reason.message)) }} onError={() => setError('Google login failed')} /> : <Typography color="warning.main">ตั้งค่า VITE_GOOGLE_CLIENT_ID เพื่อเปิด Google Login</Typography>}
+      {error && <Typography color="error">{error}</Typography>}
+    </Stack>
+  </Box>
+  return <Box component="main" sx={{ minHeight: '100vh' }}>
+    <AppBar position="sticky" color="transparent" elevation={0}><Toolbar><InsightsOutlined color="primary" /><Typography sx={{ ml: 1, flexGrow: 1 }} fontWeight={800}>SMI-V Intelligence</Typography><Button color="inherit" startIcon={<LogoutOutlined />} onClick={() => { sessionStorage.removeItem(TOKEN_KEY); setToken('') }}>ออกจากระบบ</Button></Toolbar></AppBar>
+    <Container maxWidth="xl" sx={{ py: 4 }}><Dashboard token={token} /></Container>
+  </Box>
 }
-
