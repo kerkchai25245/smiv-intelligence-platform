@@ -7,10 +7,10 @@ const VERSIONS = ['v1', 'v2', 'v3', 'v4']
 const COLORS = ['#2f80ed', '#16a05d', '#f47b20', '#8e44c5']
 const POSITIONS: Record<string, [number, number]> = {
   V1: [205, 145], V2: [515, 145], V3: [205, 350], V4: [515, 350],
-  'V1&V2': [360, 125], 'V1&V3': [225, 235], 'V2&V4': [495, 235],
-  'V3&V4': [360, 370], 'V1&V4': [325, 245], 'V2&V3': [395, 245],
-  'V1&V2&V3': [315, 205], 'V1&V2&V4': [405, 205],
-  'V1&V3&V4': [315, 315], 'V2&V3&V4': [405, 315],
+  'V1&V2': [360, 120], 'V1&V3': [225, 260], 'V2&V4': [495, 260],
+  'V3&V4': [360, 390], 'V1&V4': [292, 235], 'V2&V3': [428, 235],
+  'V1&V2&V3': [300, 185], 'V1&V2&V4': [420, 185],
+  'V1&V3&V4': [300, 330], 'V2&V3&V4': [420, 330],
   'V1&V2&V3&V4': [360, 270],
 }
 
@@ -44,7 +44,10 @@ export function IntelligencePanel({ token }: { token: string }) {
           <ellipse cx="440" cy="170" rx="175" ry="112" fill="rgba(22,160,93,.18)" stroke={COLORS[1]} strokeWidth="2" />
           <ellipse cx="290" cy="295" rx="155" ry="112" fill="rgba(244,123,32,.17)" stroke={COLORS[2]} strokeWidth="2" />
           <ellipse cx="430" cy="295" rx="155" ry="112" fill="rgba(142,68,197,.17)" stroke={COLORS[3]} strokeWidth="2" />
-          {Object.entries(POSITIONS).map(([name, [x, y]]) => <g key={name}><circle cx={x} cy={y} r={name === 'V1&V2&V3&V4' ? 21 : 18} fill="rgba(4,20,47,.78)" /><text x={x} y={y + 6} textAnchor="middle" fill={name === 'V1&V2&V3&V4' ? '#ff6565' : '#fff'} fontSize="18" fontWeight="800">{unions[name] ?? 0}</text></g>)}
+          {Object.entries(POSITIONS).map(([name, [x, y]]) => <g key={name} style={{ paintOrder: 'stroke', stroke: '#102433', strokeWidth: 5, strokeLinejoin: 'round' }}>
+            {name.includes('&') && <text x={x} y={y - 7} textAnchor="middle" fill="#c8d7e3" fontSize="10" fontWeight="700">{name.replaceAll('&', '+')}</text>}
+            <text x={x} y={y + 10} textAnchor="middle" fill={name === 'V1&V2&V3&V4' ? '#ff6565' : '#fff'} fontSize="18" fontWeight="900">{unions[name] ?? 0}</text>
+          </g>)}
           <text x="115" y="65" fill={COLORS[0]} fontWeight="800" fontSize="18">V1</text><text x="585" y="65" fill={COLORS[1]} fontWeight="800" fontSize="18">V2</text><text x="140" y="420" fill={COLORS[2]} fontWeight="800" fontSize="18">V3</text><text x="560" y="420" fill={COLORS[3]} fontWeight="800" fontSize="18">V4</text>
         </svg></Box>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, p: 1.5 }}>{byDepth.map((value, index) => <Box key={index} sx={{ p: 1.2, borderRadius: 2, textAlign: 'center', bgcolor: `${COLORS[index]}18` }}><Typography variant="caption">อยู่ {index + 1} กลุ่ม</Typography><Typography fontWeight={900}>{value.toLocaleString()} คน</Typography></Box>)}</Box>
