@@ -58,6 +58,9 @@ async def summary(
                 func.sum(case((Patient.v2.is_(True), 1), else_=0)).label("v2"),
                 func.sum(case((Patient.v3.is_(True), 1), else_=0)).label("v3"),
                 func.sum(case((Patient.v4.is_(True), 1), else_=0)).label("v4"),
+                func.sum(
+                    case((Patient.national_id_valid.is_(False), 1), else_=0)
+                ).label("invalid_ids"),
             ).where(*filters)
         )
     ).one()
@@ -78,6 +81,7 @@ async def summary(
             "v3": totals.v3 or 0,
             "v4": totals.v4 or 0,
         },
+        "invalid_national_id_count": totals.invalid_ids or 0,
         "by_province": [{"name": name, "count": count} for name, count in province_rows],
     }
 

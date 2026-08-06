@@ -38,6 +38,7 @@ export function Dashboard({ token }: { token: string }) {
   const [issues, setIssues] = useState<ImportIssue[]>([])
   const [issueTotal, setIssueTotal] = useState(0)
   const [editingIssue, setEditingIssue] = useState<ImportIssue | null>(null)
+  const [dataRevision, setDataRevision] = useState(0)
   const [correction, setCorrection] = useState({ national_id: '', first_name: '', last_name: '' })
 
   const load = useCallback(async () => {
@@ -59,13 +60,13 @@ export function Dashboard({ token }: { token: string }) {
   const confirmImport = async () => {
     if (!pendingFile) return
     setImporting(true)
-    try { const result = await api.importExcel(token, pendingFile); setImportResult(result); setPreview(null); setPendingFile(null); await load() }
+    try { const result = await api.importExcel(token, pendingFile); setImportResult(result); setPreview(null); setPendingFile(null); await load(); setDataRevision((value) => value + 1) }
     catch (reason) { setError((reason as Error).message) } finally { setImporting(false) }
   }
 
   const saveStatus = async () => {
     if (!selected) return
-    try { const updated = await api.updatePatient(token, selected.id, { status: pendingStatus, ...(!selected.national_id_valid ? { national_id: pendingNationalId } : {}) }); setSelected(updated); setPatients((items) => items.map((item) => item.id === updated.id ? updated : item)); setError('') }
+    try { const updated = await api.updatePatient(token, selected.id, { status: pendingStatus, ...(!selected.national_id_valid ? { national_id: pendingNationalId } : {}) }); setSelected(updated); setPatients((items) => items.map((item) => item.id === updated.id ? updated : item)); setError(''); await load(); setDataRevision((value) => value + 1) }
     catch (reason) { setError((reason as Error).message) }
   }
 
@@ -78,7 +79,7 @@ export function Dashboard({ token }: { token: string }) {
 
   const resolveIssue = async () => {
     if (!editingIssue) return
-    try { await api.resolveImportIssue(token, editingIssue.id, correction); setEditingIssue(null); await load() }
+    try { await api.resolveImportIssue(token, editingIssue.id, correction); setEditingIssue(null); await load(); setDataRevision((value) => value + 1) }
     catch (reason) { setError((reason as Error).message) }
   }
 
@@ -116,9 +117,9 @@ export function Dashboard({ token }: { token: string }) {
       <Stack direction="row" gap={1} mt={2}><Button variant="contained" startIcon={<SearchOutlined />} onClick={() => { setPage(0); setQuery({ ...draft }) }}>ค้นหา</Button><Button startIcon={<FilterAltOffOutlined />} onClick={() => { setPage(0); setDraft(EMPTY_QUERY); setQuery(EMPTY_QUERY) }}>ล้างตัวกรอง</Button></Stack>
     </CardContent></Card>
 
-    <IntelligencePanel token={token} query={query} />
+    <IntelligencePanel token={token} query={query} dataRevision={dataRevision} />
 
-    <Card><CardContent><Stack direction="row" justifyContent="space-between" mb={2}><Box><Typography variant="h6" fontWeight={800}>รายการผู้รับบริการ</Typography><Typography variant="body2" color="text.secondary">พบ {(total + issueTotal).toLocaleString()} รายการ <Typography component="span" color="error.light">(ต้องแก้เลขบัตร {issueTotal.toLocaleString()})</Typography></Typography></Box>{loading && <CircularProgress size={24} />}</Stack>
+    <Card><CardContent><Stack direction="row" justifyContent="space-between" mb={2}><Box><Typography variant="h6" fontWeight={800}>รายการผู้รับบริการ</Typography><Typography variant="body2" color="text.secondary">พบ {(total + issueTotal).toLocaleString()} รายการ <Typography component="span" color="error.light">(ต้องแก้เลขบัตร {summary.invalid_national_id_count.toLocaleString()})</Typography></Typography></Box>{loading && <CircularProgress size={24} />}</Stack>
       <TableContainer><Table size="small"><TableHead><TableRow><TableCell>ชื่อ–นามสกุล</TableCell><TableCell>เลขบัตร</TableCell><TableCell>พื้นที่</TableCell><TableCell>กลุ่ม V</TableCell><TableCell>สถานะ</TableCell><TableCell align="right">รายละเอียด</TableCell></TableRow></TableHead><TableBody>
         {page === 0 && issues.map((issue) => <TableRow key={issue.id} sx={{ '& td': { bgcolor: 'rgba(211,47,47,.09)', color: 'error.light', borderColor: 'rgba(255,82,82,.35)' } }}><TableCell><Typography fontWeight={900}>{String(issue.raw_data.full_name ?? issue.raw_data.first_name ?? 'ไม่ระบุชื่อ')}</Typography><Typography variant="caption">แถว {issue.row_number} ในไฟล์นำเข้า</Typography></TableCell><TableCell><Typography fontWeight={900}>เลขบัตรไม่ถูกต้อง</Typography></TableCell><TableCell>{[issue.raw_data.subdistrict, issue.raw_data.district].filter(Boolean).join(' / ') || '–'}</TableCell><TableCell>{(['v1','v2','v3','v4'] as const).filter((key) => Boolean(issue.raw_data[key])).map((key) => <Chip key={key} label={key.toUpperCase()} size="small" color="error" variant="outlined" sx={{ mr: .5 }} />)}</TableCell><TableCell><Chip label="ต้องแก้ไข" color="error" size="small" /></TableCell><TableCell align="right"><Button color="error" variant="contained" size="small" onClick={() => openIssue(issue)}>แก้ไขข้อมูล</Button></TableCell></TableRow>)}
         {patients.map((patient) => <TableRow hover key={patient.id} sx={!patient.national_id_valid ? { '& td': { bgcolor: 'rgba(211,47,47,.09)', color: 'error.light' } } : undefined}><TableCell><Typography fontWeight={700}>{patient.first_name} {patient.last_name}</Typography>{!patient.national_id_valid && <Typography variant="caption" fontWeight={900}>ต้องแก้ไขเลขบัตร</Typography>}</TableCell><TableCell>{patient.national_id_valid ? `•••••••••${patient.national_id_last4}` : <Chip color="error" size="small" label={`${patient.national_id_invalid_value || 'ไม่ระบุ'} (${(patient.national_id_invalid_value || '').replace(/\D/g, '').length} หลัก)`} />}</TableCell><TableCell>{[patient.subdistrict, patient.district].filter(Boolean).join(' / ') || '–'}</TableCell><TableCell><VersionChips patient={patient} /></TableCell><TableCell>{patient.national_id_valid ? <StatusChip status={patient.status} /> : <Chip color="error" label="ข้อมูลต้องแก้" size="small" />}</TableCell><TableCell align="right"><Button color={patient.national_id_valid ? 'primary' : 'error'} variant={patient.national_id_valid ? 'text' : 'contained'} size="small" onClick={() => { setSelected(patient); setPendingStatus(patient.status); setPendingNationalId(patient.national_id_invalid_value ?? '') }}>{patient.national_id_valid ? 'เปิดดู' : 'แก้ไขเลขบัตร'}</Button></TableCell></TableRow>)}

@@ -1,7 +1,7 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 export type Patient = { id: string; national_id_last4: string; national_id_valid: boolean; national_id_invalid_value: string | null; first_name: string; last_name: string; province: string | null; district: string | null; subdistrict: string | null; v1: boolean; v2: boolean; v3: boolean; v4: boolean; status: 'active' | 'deceased' | 'moved'; version: number }
-export type Summary = { total: number; categories: Record<'v1' | 'v2' | 'v3' | 'v4', number>; by_province: Array<{ name: string; count: number }> }
+export type Summary = { total: number; categories: Record<'v1' | 'v2' | 'v3' | 'v4', number>; invalid_national_id_count: number; by_province: Array<{ name: string; count: number }> }
 export type MapPoint = { latitude: number; longitude: number; province: string | null; district: string | null; categories: string[] }
 export type ImportError = { row: number; message: string; raw_data?: Record<string, unknown> }
 export type ImportResult = { filename: string; status: string; created_count: number; updated_count: number; skipped_count: number; errors: ImportError[] }

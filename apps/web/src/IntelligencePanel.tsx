@@ -5,13 +5,13 @@ import { api, type PatientQuery } from './api'
 
 const COLORS = ['#39d0bb', '#4f68ff', '#ff9f43', '#a65eea']
 
-export function IntelligencePanel({ token, query }: { token: string; query: PatientQuery }) {
+export function IntelligencePanel({ token, query, dataRevision }: { token: string; query: PatientQuery; dataRevision: number }) {
   const [unions, setUnions] = useState<Record<string, number>>({})
   const [error, setError] = useState('')
 
   useEffect(() => {
     api.unions(token, query).then((data) => { setUnions(data); setError('') }).catch((reason: Error) => setError(reason.message))
-  }, [token, query])
+  }, [token, query, dataRevision])
 
   const entries = Object.entries(unions).filter(([, value]) => value > 0).sort((a, b) => b[1] - a[1])
   const total = entries.reduce((sum, [, value]) => sum + value, 0)
