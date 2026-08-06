@@ -21,3 +21,31 @@ def test_header_row_can_follow_report_title() -> None:
 
     assert row_number == 3
     assert headers[1] == "national_id"
+
+
+def test_songkhla_workbook_headers_are_supported() -> None:
+    headers = [
+        "CID",
+        "sex",
+        "fullname",
+        "tmb",
+        "amp",
+        "chw",
+        "SMI-V1",
+        "SMI-V2",
+        "SMI-V3",
+        "SMI-V4",
+    ]
+
+    assert [_canonical(value) for value in headers] == [
+        "national_id",
+        "gender",
+        "full_name",
+        "subdistrict",
+        "district",
+        "province",
+        "v1",
+        "v2",
+        "v3",
+        "v4",
+    ]

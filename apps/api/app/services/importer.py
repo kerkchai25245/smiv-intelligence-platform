@@ -25,17 +25,18 @@ ALIASES = {
     },
     "first_name": {"first_name", "firstname", "ชื่อ"},
     "last_name": {"last_name", "lastname", "นามสกุล"},
+    "full_name": {"full_name", "fullname", "name", "ชื่อ-นามสกุล", "ชื่อสกุล"},
     "date_of_birth": {"date_of_birth", "dob", "วันเกิด"},
     "gender": {"gender", "sex", "เพศ"},
-    "province": {"province", "จังหวัด"},
-    "district": {"district", "อำเภอ", "เขต"},
-    "subdistrict": {"subdistrict", "ตำบล", "แขวง"},
+    "province": {"province", "chw", "จังหวัด"},
+    "district": {"district", "amp", "อำเภอ", "เขต"},
+    "subdistrict": {"subdistrict", "tmb", "ตำบล", "แขวง"},
     "latitude": {"latitude", "lat", "ละติจูด"},
     "longitude": {"longitude", "lng", "lon", "ลองจิจูด"},
-    "v1": {"v1"},
-    "v2": {"v2"},
-    "v3": {"v3"},
-    "v4": {"v4"},
+    "v1": {"v1", "smi-v1", "smiv1"},
+    "v2": {"v2", "smi-v2", "smiv2"},
+    "v3": {"v3", "smi-v3", "smiv3"},
+    "v4": {"v4", "smi-v4", "smiv4"},
 }
 
 
@@ -85,9 +86,16 @@ async def import_excel(
             )
             known = {key: raw.get(key) for key in ALIASES}
             extras = {key: value for key, value in raw.items() if key not in ALIASES}
+            first_name = str(known["first_name"] or "").strip()
+            last_name = str(known["last_name"] or "").strip()
+            full_name = str(known["full_name"] or "").strip()
+            if full_name and (not first_name or not last_name):
+                name_parts = full_name.split()
+                first_name = first_name or name_parts[0]
+                last_name = last_name or " ".join(name_parts[1:])
             fields = {
-                "first_name": str(known["first_name"] or "").strip(),
-                "last_name": str(known["last_name"] or "").strip(),
+                "first_name": first_name,
+                "last_name": last_name,
                 "date_of_birth": parse_date(known["date_of_birth"]),
                 "gender": str(known["gender"] or "").strip() or None,
                 "province": str(known["province"] or "").strip() or None,
