@@ -1,17 +1,17 @@
 import HubOutlined from '@mui/icons-material/HubOutlined'
-import { Alert, Box, Card, CardContent, Chip, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
+import { Alert, Box, Card, CardContent, Chip, Stack, Typography } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { api } from './api'
 
 const VERSIONS = ['v1', 'v2', 'v3', 'v4']
 const COLORS = ['#2f80ed', '#16a05d', '#f47b20', '#8e44c5']
 const POSITIONS: Record<string, [number, number]> = {
-  V1: [205, 145], V2: [505, 145], V3: [225, 345], V4: [505, 345],
-  'V1&V2': [355, 135], 'V1&V3': [235, 245], 'V1&V4': [350, 230],
-  'V2&V3': [350, 255], 'V2&V4': [485, 245], 'V3&V4': [365, 355],
-  'V1&V2&V3': [305, 205], 'V1&V2&V4': [410, 205],
-  'V1&V3&V4': [315, 310], 'V2&V3&V4': [420, 310],
-  'V1&V2&V3&V4': [365, 265],
+  V1: [205, 145], V2: [515, 145], V3: [205, 350], V4: [515, 350],
+  'V1&V2': [360, 125], 'V1&V3': [225, 235], 'V2&V4': [495, 235],
+  'V3&V4': [360, 370], 'V1&V4': [325, 245], 'V2&V3': [395, 245],
+  'V1&V2&V3': [315, 205], 'V1&V2&V4': [405, 205],
+  'V1&V3&V4': [315, 315], 'V2&V3&V4': [405, 315],
+  'V1&V2&V3&V4': [360, 270],
 }
 
 export function IntelligencePanel({ token }: { token: string }) {
@@ -35,7 +35,7 @@ export function IntelligencePanel({ token }: { token: string }) {
       <Box sx={{ px: 2.5, py: 1, borderRadius: 2, bgcolor: 'rgba(47,128,237,.14)', textAlign: 'center', minWidth: 150 }}><Typography variant="caption" color="text.secondary">จำนวนทั้งหมด</Typography><Typography variant="h4" fontWeight={900}>{total.toLocaleString()} <Typography component="span" fontWeight={700}>คน</Typography></Typography></Box>
     </Stack>
     <Stack direction="row" gap={1} flexWrap="wrap" mb={2}><Chip label="ทั้งหมด" clickable color={!selected.length ? 'primary' : 'default'} onClick={() => setSelected([])} />{VERSIONS.map((value) => <Chip key={value} label={value.toUpperCase()} clickable variant={selected.includes(value) ? 'filled' : 'outlined'} color={selected.includes(value) ? 'primary' : 'default'} onClick={() => toggle(value)} />)}</Stack>
-    {error ? <Alert severity="error">{error}</Alert> : <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0,1.08fr) minmax(420px,.92fr)' }, gap: 2 }}>
+    {error ? <Alert severity="error">{error}</Alert> : <Box>
       <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
         <SectionTitle>แผนภาพวงกลม 4 วง (Venn Diagram)</SectionTitle>
         <Box sx={{ px: 2, pt: 1.5 }}><Stack direction="row" justifyContent="space-around" flexWrap="wrap" gap={1}>{membershipTotals.map((value, index) => <Typography key={index} fontWeight={800} sx={{ color: COLORS[index] }}>V{index + 1} ({value.toLocaleString()} คน)</Typography>)}</Stack></Box>
@@ -48,10 +48,6 @@ export function IntelligencePanel({ token }: { token: string }) {
           <text x="115" y="65" fill={COLORS[0]} fontWeight="800" fontSize="18">V1</text><text x="585" y="65" fill={COLORS[1]} fontWeight="800" fontSize="18">V2</text><text x="140" y="420" fill={COLORS[2]} fontWeight="800" fontSize="18">V3</text><text x="560" y="420" fill={COLORS[3]} fontWeight="800" fontSize="18">V4</text>
         </svg></Box>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 1, p: 1.5 }}>{byDepth.map((value, index) => <Box key={index} sx={{ p: 1.2, borderRadius: 2, textAlign: 'center', bgcolor: `${COLORS[index]}18` }}><Typography variant="caption">อยู่ {index + 1} กลุ่ม</Typography><Typography fontWeight={900}>{value.toLocaleString()} คน</Typography></Box>)}</Box>
-      </Box>
-      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
-        <SectionTitle>ตารางสรุปจำนวนในแต่ละส่วน</SectionTitle>
-        <TableContainer><Table size="small"><TableHead><TableRow><TableCell>กลุ่ม</TableCell><TableCell align="right">จำนวน (คน)</TableCell></TableRow></TableHead><TableBody>{entries.map(([name, value]) => <TableRow key={name} sx={name.split('&').length === 4 ? { '& td': { color: 'error.light', fontWeight: 900 } } : undefined}><TableCell><Stack direction="row" alignItems="center" gap={1}><Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: COLORS[Math.min(name.split('&').length - 1, 3)] }} />{name.replaceAll('&', ' + ')}</Stack></TableCell><TableCell align="right" sx={{ fontWeight: 800 }}>{value.toLocaleString()}</TableCell></TableRow>)}</TableBody></Table></TableContainer>
       </Box>
     </Box>}
     <Typography variant="caption" color="text.secondary" display="block" mt={1.5}>หมายเหตุ: ตัวเลขในพื้นที่ซ้อนกันคือจำนวนผู้ที่อยู่ในกลุ่มดังกล่าวพร้อมกัน และแต่ละคนถูกนับเพียงหนึ่งส่วน</Typography>
