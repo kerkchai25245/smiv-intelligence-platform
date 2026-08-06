@@ -1,3 +1,4 @@
+import re
 from io import BytesIO
 from typing import Any
 
@@ -10,7 +11,18 @@ from app.services.audit import add_audit
 from app.services.patients import make_version, parse_bool, parse_date
 
 ALIASES = {
-    "national_id": {"national_id", "national id", "thai_id", "cid", "เลขบัตรประชาชน"},
+    "national_id": {
+        "national_id",
+        "national id",
+        "thai_id",
+        "cid",
+        "เลขบัตรประชาชน",
+        "เลขที่บัตรประชาชน",
+        "เลขประจำตัวประชาชน",
+        "เลขบัตรประจำตัวประชาชน",
+        "เลขประจำตัวประชาชน13หลัก",
+        "เลขบัตรประชาชน13หลัก",
+    },
     "first_name": {"first_name", "firstname", "ชื่อ"},
     "last_name": {"last_name", "lastname", "นามสกุล"},
     "date_of_birth": {"date_of_birth", "dob", "วันเกิด"},
@@ -30,7 +42,8 @@ ALIASES = {
 def _canonical(header: object) -> str:
     normalized = str(header or "").strip().lower()
     for canonical, aliases in ALIASES.items():
-        if normalized in aliases:
+        compact = re.sub(r"[\s_\-./()]+", "", normalized)
+        if any(compact == re.sub(r"[\s_\-./()]+", "", alias) for alias in aliases):
             return canonical
     return normalized
 
