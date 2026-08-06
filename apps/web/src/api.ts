@@ -25,7 +25,7 @@ export const api = {
   googleLogin: (credential: string) => request<{ access_token: string; user: Record<string, string> }>('/auth/google', '', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential }) }),
   summary: (token: string) => request<Summary>('/dashboard/summary', token),
   patients: (token: string, search = '') => request<{ items: Patient[]; total: number }>(`/patients?search=${encodeURIComponent(search)}`, token),
-  importExcel: (token: string, file: File) => request('/imports/excel', token, { method: 'POST', headers: { 'Content-Type': file.type, 'X-Filename': file.name }, body: file }),
+  importExcel: (token: string, file: File) => request('/imports/excel', token, { method: 'POST', headers: { 'Content-Type': file.type, 'X-Filename': encodeURIComponent(file.name) }, body: file }),
   unions: (token: string) => request<Record<string, number>>('/dashboard/unions', token),
   map: (token: string) => request<MapPoint[]>('/intelligence/map', token),
   insights: (token: string) => request<{ insights: string[]; engine: string }>('/intelligence/insights', token),

@@ -1,4 +1,5 @@
 from typing import Annotated
+from urllib.parse import unquote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -31,6 +32,7 @@ async def upload_excel(
     request: Request,
     filename: Annotated[str, Header(alias="X-Filename")],
 ) -> ImportJob:
+    filename = unquote(filename)
     if not filename.lower().endswith(".xlsx"):
         raise HTTPException(status_code=415, detail="Only .xlsx files are supported")
     content = await request.body()
