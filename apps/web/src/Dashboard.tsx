@@ -6,7 +6,7 @@ import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 import ReactECharts from 'echarts-for-react'
 import { useEffect, useMemo, useState } from 'react'
-import { api, type Patient, type Summary } from './api'
+import { api, type ImportResult, type Patient, type Summary } from './api'
 import { IntelligencePanel } from './IntelligencePanel'
 
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -16,6 +16,7 @@ export function Dashboard({ token }: { token: string }) {
   const [patients, setPatients] = useState<Patient[]>([])
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
 
   useEffect(() => {
     Promise.all([api.summary(token), api.patients(token, search)])
@@ -36,6 +37,10 @@ export function Dashboard({ token }: { token: string }) {
 
   return <Stack spacing={3}>
     {error && <Alert severity="error">{error}</Alert>}
+    {importResult && <Alert severity={importResult.skipped_count ? 'warning' : 'success'}>
+      นำเข้าเสร็จแล้ว: เพิ่ม {importResult.created_count} รายการ, อัปเดต {importResult.updated_count} รายการ, ข้าม {importResult.skipped_count} รายการ
+      {importResult.errors.slice(0, 5).map((item) => <Typography key={`${item.row}-${item.message}`} variant="body2">แถว {item.row}: {item.message}</Typography>)}
+    </Alert>}
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(5,1fr)' }, gap: 2 }}>
       <Metric label="ผู้รับบริการทั้งหมด" value={summary.total} />
       {Object.entries(summary.categories).map(([key, value]) => <Metric key={key} label={key.toUpperCase()} value={value} />)}
@@ -44,7 +49,7 @@ export function Dashboard({ token }: { token: string }) {
       <Card><CardContent><Typography variant="h6">จำนวนตามจังหวัด</Typography><ReactECharts option={chart} style={{ height: 340 }} /></CardContent></Card>
       <Card><CardContent><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={2} mb={2}>
         <TextField value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ค้นหาชื่อหรือนามสกุล" size="small" InputProps={{ startAdornment: <InputAdornment position="start"><SearchOutlined /></InputAdornment> }} />
-        <Button component="label" variant="contained" startIcon={<CloudUploadOutlined />}>นำเข้า Excel<input hidden type="file" accept=".xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) api.importExcel(token, file).then(() => location.reload()).catch((reason: Error) => setError(reason.message)) }} /></Button>
+        <Button component="label" variant="contained" startIcon={<CloudUploadOutlined />}>นำเข้า Excel<input hidden type="file" accept=".xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) api.importExcel(token, file).then((result) => { setImportResult(result); setError('') }).catch((reason: Error) => setError(reason.message)); event.target.value = '' }} /></Button>
       </Stack>
       <Box sx={{ height: 410 }}><AgGridReact rowData={patients} columnDefs={columns} pagination paginationPageSize={20} /></Box>
       </CardContent></Card>
