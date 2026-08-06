@@ -77,3 +77,14 @@ class ImportJob(UUIDMixin, TimestampMixin, Base):
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ImportIssue(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "import_issues"
+    import_job_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("import_jobs.id", ondelete="CASCADE"), index=True
+    )
+    row_number: Mapped[int] = mapped_column(Integer)
+    reason: Mapped[str] = mapped_column(Text)
+    raw_data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False, index=True)

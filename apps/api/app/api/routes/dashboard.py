@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,13 +52,23 @@ async def summary(
 async def unions(
     session: Annotated[AsyncSession, Depends(get_session)],
     _: Annotated[User, Depends(current_user)],
+    v: Annotated[list[str] | None, Query()] = None,
 ) -> dict[str, int]:
     columns = [Patient.v1, Patient.v2, Patient.v3, Patient.v4]
+    selected = {value.lower() for value in (v or [])}
+    global_filters = [
+        column.is_(True)
+        for index, column in enumerate(columns, 1)
+        if f"v{index}" in selected
+    ]
     result: dict[str, int] = {}
     for mask in range(1, 16):
         filters = [column.is_(bool(mask & (1 << index))) for index, column in enumerate(columns)]
         label = "&".join(f"V{index + 1}" for index in range(4) if mask & (1 << index))
         result[label] = (
-            await session.scalar(select(func.count()).select_from(Patient).where(*filters)) or 0
+            await session.scalar(
+                select(func.count()).select_from(Patient).where(*global_filters, *filters)
+            )
+            or 0
         )
     return result

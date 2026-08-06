@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_national_id, normalize_national_id
-from app.models import ImportJob, Patient, User
+from app.models import ImportIssue, ImportJob, Patient, User
 from app.services.audit import add_audit
 from app.services.patients import make_version, parse_bool, parse_date
 
@@ -69,6 +69,12 @@ def _national_id_text(value: object) -> str:
     return str(value or "")
 
 
+def _json_value(value: object) -> object:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
 def _parse_excel(content: bytes) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]], int]:
     from openpyxl import load_workbook
 
@@ -122,7 +128,11 @@ def _parse_excel(content: bytes) -> tuple[dict[str, dict[str, Any]], list[dict[s
                 "extra_data": extras,
             }
         except (TypeError, ValueError) as exc:
-            errors.append({"row": row_number, "message": str(exc)})
+            errors.append({
+                "row": row_number,
+                "message": str(exc),
+                "raw_data": {str(key): _json_value(value) for key, value in raw.items()},
+            })
     return parsed, errors, total_rows
 
 
@@ -152,6 +162,13 @@ async def import_excel(
     session.add(job)
     await session.flush()
     parsed, errors, _ = _parse_excel(content)
+    for error in errors:
+        session.add(ImportIssue(
+            import_job_id=job.id,
+            row_number=int(error["row"]),
+            reason=str(error["message"]),
+            raw_data=dict(error.get("raw_data") or {}),
+        ))
     existing_patients = list(
         await session.scalars(
             select(Patient).where(Patient.national_id_hash.in_(list(parsed)))

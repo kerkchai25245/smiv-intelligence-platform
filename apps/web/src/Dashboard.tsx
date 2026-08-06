@@ -7,9 +7,10 @@ import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogTitle, Divider, FormControl, InputLabel, MenuItem, Select, Stack,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+  TablePagination,
 } from '@mui/material'
 import { useCallback, useEffect, useState } from 'react'
-import { api, type ImportPreview, type ImportResult, type Patient, type PatientFilters, type PatientQuery, type Summary } from './api'
+import { api, type ImportIssue, type ImportPreview, type ImportResult, type Patient, type PatientFilters, type PatientQuery, type Summary } from './api'
 import { IntelligencePanel } from './IntelligencePanel'
 
 const EMPTY_QUERY: PatientQuery = { nationalId: '', firstName: '', lastName: '', district: '', subdistrict: '', versions: [], status: '' }
@@ -22,6 +23,8 @@ export function Dashboard({ token }: { token: string }) {
   const [options, setOptions] = useState<PatientFilters>({ districts: [], subdistricts: [] })
   const [draft, setDraft] = useState<PatientQuery>(EMPTY_QUERY)
   const [query, setQuery] = useState<PatientQuery>(EMPTY_QUERY)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Patient | null>(null)
@@ -31,14 +34,18 @@ export function Dashboard({ token }: { token: string }) {
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [issues, setIssues] = useState<ImportIssue[]>([])
+  const [issueTotal, setIssueTotal] = useState(0)
+  const [editingIssue, setEditingIssue] = useState<ImportIssue | null>(null)
+  const [correction, setCorrection] = useState({ national_id: '', first_name: '', last_name: '' })
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [nextSummary, page, nextOptions] = await Promise.all([api.summary(token), api.patients(token, query), api.patientFilters(token)])
-      setSummary(nextSummary); setPatients(page.items); setTotal(page.total); setOptions(nextOptions); setError('')
+      const [nextSummary, patientPage, nextOptions, issuePage] = await Promise.all([api.summary(token), api.patients(token, { ...query, page: page + 1, pageSize }), api.patientFilters(token), api.importIssues(token)])
+      setSummary(nextSummary); setPatients(patientPage.items); setTotal(patientPage.total); setOptions(nextOptions); setIssues(issuePage.items); setIssueTotal(issuePage.total); setError('')
     } catch (reason) { setError((reason as Error).message) } finally { setLoading(false) }
-  }, [token, query])
+  }, [token, query, page, pageSize])
 
   useEffect(() => { void load() }, [load])
 
@@ -58,6 +65,19 @@ export function Dashboard({ token }: { token: string }) {
   const saveStatus = async () => {
     if (!selected) return
     try { const updated = await api.updatePatient(token, selected.id, { status: pendingStatus }); setSelected(updated); setPatients((items) => items.map((item) => item.id === updated.id ? updated : item)); setError('') }
+    catch (reason) { setError((reason as Error).message) }
+  }
+
+  const openIssue = (issue: ImportIssue) => {
+    const raw = issue.raw_data
+    const fullName = String(raw.full_name ?? '').trim().split(/\s+/)
+    setEditingIssue(issue)
+    setCorrection({ national_id: String(raw.national_id ?? ''), first_name: String(raw.first_name ?? fullName[0] ?? ''), last_name: String(raw.last_name ?? fullName.slice(1).join(' ')) })
+  }
+
+  const resolveIssue = async () => {
+    if (!editingIssue) return
+    try { await api.resolveImportIssue(token, editingIssue.id, correction); setEditingIssue(null); await load() }
     catch (reason) { setError((reason as Error).message) }
   }
 
@@ -93,7 +113,7 @@ export function Dashboard({ token }: { token: string }) {
       </Box>
       <Typography variant="body2" color="text.secondary" mt={2} mb={1}>เลือกกลุ่ม V (เลือกได้หลายรายการ)</Typography>
       <Stack direction="row" gap={1} flexWrap="wrap">{['v1','v2','v3','v4'].map((value) => { const active = draft.versions?.includes(value); return <Chip key={value} clickable color={active ? 'primary' : 'default'} variant={active ? 'filled' : 'outlined'} label={value.toUpperCase()} onClick={() => setDraft({ ...draft, versions: active ? draft.versions?.filter((item) => item !== value) : [...(draft.versions ?? []), value] })} /> })}</Stack>
-      <Stack direction="row" gap={1} mt={2}><Button variant="contained" startIcon={<SearchOutlined />} onClick={() => setQuery({ ...draft })}>ค้นหา</Button><Button startIcon={<FilterAltOffOutlined />} onClick={() => { setDraft(EMPTY_QUERY); setQuery(EMPTY_QUERY) }}>ล้างตัวกรอง</Button></Stack>
+      <Stack direction="row" gap={1} mt={2}><Button variant="contained" startIcon={<SearchOutlined />} onClick={() => { setPage(0); setQuery({ ...draft }) }}>ค้นหา</Button><Button startIcon={<FilterAltOffOutlined />} onClick={() => { setPage(0); setDraft(EMPTY_QUERY); setQuery(EMPTY_QUERY) }}>ล้างตัวกรอง</Button></Stack>
     </CardContent></Card>
 
     <Card><CardContent><Stack direction="row" justifyContent="space-between" mb={2}><Box><Typography variant="h6" fontWeight={800}>รายการผู้รับบริการ</Typography><Typography variant="body2" color="text.secondary">พบ {total.toLocaleString()} รายการ</Typography></Box>{loading && <CircularProgress size={24} />}</Stack>
@@ -101,9 +121,17 @@ export function Dashboard({ token }: { token: string }) {
         {patients.map((patient) => <TableRow hover key={patient.id}><TableCell><Typography fontWeight={700}>{patient.first_name} {patient.last_name}</Typography></TableCell><TableCell>•••••••••{patient.national_id_last4}</TableCell><TableCell>{[patient.subdistrict, patient.district].filter(Boolean).join(' / ') || '–'}</TableCell><TableCell><VersionChips patient={patient} /></TableCell><TableCell><StatusChip status={patient.status} /></TableCell><TableCell align="right"><Button size="small" onClick={() => { setSelected(patient); setPendingStatus(patient.status) }}>เปิดดู</Button></TableCell></TableRow>)}
         {!loading && !patients.length && <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>ไม่พบข้อมูลตามเงื่อนไข</TableCell></TableRow>}
       </TableBody></Table></TableContainer>
+      <TablePagination component="div" count={total} page={page} rowsPerPage={pageSize} rowsPerPageOptions={[20, 50, 100]} labelRowsPerPage="แสดงต่อหน้า" labelDisplayedRows={({ from, to, count }) => `${from}–${to} จาก ${count}`} onPageChange={(_, nextPage) => setPage(nextPage)} onRowsPerPageChange={(event) => { setPageSize(Number(event.target.value)); setPage(0) }} />
     </CardContent></Card>
 
-    <Dialog open={Boolean(preview || previewing)} onClose={() => !importing && setPreview(null)} fullWidth maxWidth="sm"><DialogTitle>ตรวจสอบไฟล์ก่อนนำเข้า</DialogTitle><DialogContent dividers>{previewing ? <Box sx={{ py: 5, display: 'grid', placeItems: 'center' }}><CircularProgress /></Box> : preview && <Stack spacing={2}><Typography fontWeight={700}>{preview.filename}</Typography><Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1 }}><PreviewCount label="เพิ่ม" value={preview.created_count} /><PreviewCount label="อัปเดต" value={preview.updated_count} /><PreviewCount label="ข้าม" value={preview.skipped_count} warning /></Box><Typography variant="body2">ทั้งหมด {preview.total_rows.toLocaleString()} แถว · ข้อมูลสมบูรณ์ {preview.valid_rows.toLocaleString()} แถว</Typography>{preview.errors.length > 0 && <Alert severity="warning"><Typography fontWeight={700}>ข้อมูลไม่สมบูรณ์</Typography>{preview.errors.slice(0, 10).map((item) => <Typography key={`${item.row}-${item.message}`} variant="body2">แถว {item.row}: {item.message}</Typography>)}</Alert>}</Stack>}</DialogContent><DialogActions><Button onClick={() => { setPreview(null); setPendingFile(null) }} disabled={importing}>ยกเลิก</Button><Button variant="contained" onClick={() => void confirmImport()} disabled={!preview || importing || preview.valid_rows === 0}>{importing ? 'กำลังนำเข้า…' : 'ยืนยันนำเข้า'}</Button></DialogActions></Dialog>
+    {issueTotal > 0 && <Card sx={{ borderColor: 'warning.main' }}><CardContent>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={1} mb={2}><Box><Typography variant="h6" fontWeight={800}>รายการรอตรวจแก้</Typography><Typography variant="body2" color="text.secondary">เก็บข้อมูลจากแถวที่ไม่สมบูรณ์ไว้แล้ว แก้ไขให้ครบเพื่อย้ายเข้าสู่รายการผู้รับบริการ</Typography></Box><Chip color="warning" label={`${issueTotal.toLocaleString()} รายการ`} /></Stack>
+      <TableContainer><Table size="small"><TableHead><TableRow><TableCell>แถวในไฟล์</TableCell><TableCell>ข้อมูลเดิม</TableCell><TableCell>สาเหตุ</TableCell><TableCell align="right">แก้ไข</TableCell></TableRow></TableHead><TableBody>{issues.map((issue) => <TableRow key={issue.id}><TableCell>{issue.row_number}</TableCell><TableCell>{String(issue.raw_data.full_name ?? issue.raw_data.first_name ?? 'ไม่ระบุชื่อ')}</TableCell><TableCell>{issue.reason}</TableCell><TableCell align="right"><Button size="small" variant="outlined" onClick={() => openIssue(issue)}>ตรวจแก้</Button></TableCell></TableRow>)}</TableBody></Table></TableContainer>
+    </CardContent></Card>}
+
+    <Dialog open={Boolean(preview || previewing)} onClose={() => !importing && setPreview(null)} fullWidth maxWidth="sm"><DialogTitle>ตรวจสอบไฟล์ก่อนนำเข้า</DialogTitle><DialogContent dividers>{previewing ? <Box sx={{ py: 5, display: 'grid', placeItems: 'center' }}><CircularProgress /></Box> : preview && <Stack spacing={2}><Typography fontWeight={700}>{preview.filename}</Typography><Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1 }}><PreviewCount label="เพิ่ม" value={preview.created_count} /><PreviewCount label="อัปเดต" value={preview.updated_count} /><PreviewCount label="รอตรวจแก้" value={preview.skipped_count} warning /></Box><Typography variant="body2">ทั้งหมด {preview.total_rows.toLocaleString()} แถว · ข้อมูลสมบูรณ์ {preview.valid_rows.toLocaleString()} แถว</Typography>{preview.errors.length > 0 && <Alert severity="warning"><Typography fontWeight={700}>ข้อมูลไม่สมบูรณ์จะถูกเก็บในรายการรอตรวจแก้ ไม่สูญหาย</Typography>{preview.errors.slice(0, 10).map((item) => <Typography key={`${item.row}-${item.message}`} variant="body2">แถว {item.row}: {item.message}</Typography>)}</Alert>}</Stack>}</DialogContent><DialogActions><Button onClick={() => { setPreview(null); setPendingFile(null) }} disabled={importing}>ยกเลิก</Button><Button variant="contained" onClick={() => void confirmImport()} disabled={!preview || importing}>{importing ? 'กำลังนำเข้า…' : 'ยืนยันนำเข้า'}</Button></DialogActions></Dialog>
+
+    <Dialog open={Boolean(editingIssue)} onClose={() => setEditingIssue(null)} fullWidth maxWidth="sm"><DialogTitle>แก้ไขข้อมูลรอตรวจ</DialogTitle><DialogContent dividers><Stack spacing={2}><Alert severity="info">แถว {editingIssue?.row_number}: {editingIssue?.reason}</Alert><TextField label="เลขบัตรประชาชน 13 หลัก" value={correction.national_id} onChange={(event) => setCorrection({ ...correction, national_id: event.target.value })} /><TextField label="ชื่อ" value={correction.first_name} onChange={(event) => setCorrection({ ...correction, first_name: event.target.value })} /><TextField label="นามสกุล" value={correction.last_name} onChange={(event) => setCorrection({ ...correction, last_name: event.target.value })} /></Stack></DialogContent><DialogActions><Button onClick={() => setEditingIssue(null)}>ยกเลิก</Button><Button variant="contained" onClick={() => void resolveIssue()}>บันทึกและย้ายเข้ารายการ</Button></DialogActions></Dialog>
 
     <Dialog open={Boolean(selected)} onClose={() => setSelected(null)} fullWidth maxWidth="sm"><DialogTitle>รายละเอียดผู้รับบริการ</DialogTitle>{selected && <DialogContent dividers><Stack spacing={2}><Box><Typography variant="h6" fontWeight={800}>{selected.first_name} {selected.last_name}</Typography><Typography color="text.secondary">เลขบัตรลงท้าย {selected.national_id_last4}</Typography></Box><Divider /><Box><Typography variant="body2" color="text.secondary" mb={1}>กลุ่ม V</Typography><VersionChips patient={selected} /></Box><Box><Typography variant="body2" color="text.secondary">พื้นที่</Typography><Typography>{[selected.subdistrict, selected.district, selected.province].filter(Boolean).join(' / ') || 'ไม่ระบุ'}</Typography></Box><FormControl fullWidth><InputLabel>สถานะ</InputLabel><Select label="สถานะ" value={pendingStatus} onChange={(e) => setPendingStatus(e.target.value as Patient['status'])}>{Object.entries(STATUS_LABELS).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></FormControl></Stack></DialogContent>}<DialogActions><Button onClick={() => setSelected(null)}>ปิด</Button><Button variant="contained" onClick={() => void saveStatus()}>บันทึกสถานะ</Button></DialogActions></Dialog>
   </Stack>
