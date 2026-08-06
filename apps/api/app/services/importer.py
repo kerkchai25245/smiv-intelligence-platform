@@ -1,4 +1,5 @@
 import re
+from hashlib import sha256
 from io import BytesIO
 from typing import Any
 
@@ -90,8 +91,6 @@ def _parse_excel(content: bytes) -> tuple[dict[str, dict[str, Any]], list[dict[s
         total_rows += 1
         raw: dict[str, Any] = dict(zip(headers, values, strict=False))
         try:
-            digits = normalize_national_id(_national_id_text(raw.get("national_id")))
-            national_hash = hash_national_id(digits)
             known = {key: raw.get(key) for key in ALIASES}
             extras = {key: value for key, value in raw.items() if key not in ALIASES}
             first_name = str(known["first_name"] or "").strip()
@@ -103,11 +102,28 @@ def _parse_excel(content: bytes) -> tuple[dict[str, dict[str, Any]], list[dict[s
                 last_name = last_name or " ".join(name_parts[1:])
             if not first_name or not last_name:
                 raise ValueError("first_name and last_name are required")
+            raw_national_id = _national_id_text(raw.get("national_id")).strip()
+            digits = re.sub(r"\D", "", raw_national_id)
+            national_id_valid = len(digits) == 13
+            if national_id_valid:
+                digits = normalize_national_id(digits)
+                national_hash = hash_national_id(digits)
+            else:
+                fingerprint = f"{row_number}:{raw_national_id}:{first_name}:{last_name}"
+                national_hash = sha256(f"invalid:{fingerprint}".encode()).hexdigest()
+                errors.append({
+                    "row": row_number,
+                    "message": f"เลขบัตรมี {len(digits)} หลัก (ควรมี 13 หลัก) แต่นำเข้าข้อมูลแล้ว",
+                    "stored": True,
+                    "raw_data": {str(key): _json_value(value) for key, value in raw.items()},
+                })
             if national_hash in parsed:
                 raise ValueError("Duplicate national ID in this file")
             parsed[national_hash] = {
                 "national_id_hash": national_hash,
-                "national_id_last4": digits[-4:],
+                "national_id_last4": digits[-4:] if digits else "",
+                "national_id_valid": national_id_valid,
+                "national_id_invalid_value": None if national_id_valid else raw_national_id,
                 "first_name": first_name,
                 "last_name": last_name,
                 "date_of_birth": parse_date(known["date_of_birth"]),
@@ -162,7 +178,19 @@ async def import_excel(
     session.add(job)
     await session.flush()
     parsed, errors, _ = _parse_excel(content)
+    stored_warning_rows = [int(error["row"]) for error in errors if error.get("stored")]
+    if stored_warning_rows:
+        previous_issues = await session.scalars(
+            select(ImportIssue).where(
+                ImportIssue.resolved.is_(False),
+                ImportIssue.row_number.in_(stored_warning_rows),
+            )
+        )
+        for issue in previous_issues:
+            issue.resolved = True
     for error in errors:
+        if error.get("stored"):
+            continue
         session.add(ImportIssue(
             import_job_id=job.id,
             row_number=int(error["row"]),

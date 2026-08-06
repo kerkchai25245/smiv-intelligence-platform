@@ -10,6 +10,8 @@ class PatientRead(BaseModel):
 
     id: UUID
     national_id_last4: str
+    national_id_valid: bool
+    national_id_invalid_value: str | None
     first_name: str
     last_name: str
     date_of_birth: date | None
@@ -36,6 +38,7 @@ class PatientPage(BaseModel):
 
 
 class PatientUpdate(BaseModel):
+    national_id: str | None = Field(default=None, max_length=100)
     first_name: str | None = Field(default=None, max_length=150)
     last_name: str | None = Field(default=None, max_length=150)
     province: str | None = Field(default=None, max_length=120)

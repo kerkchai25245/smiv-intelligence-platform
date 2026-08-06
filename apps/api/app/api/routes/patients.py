@@ -1,3 +1,5 @@
+import re
+from hashlib import sha256
 from typing import Annotated
 from uuid import UUID
 
@@ -108,7 +110,32 @@ async def update_patient(
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
     session.add(make_version(patient, user.id))
-    for key, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    national_id = updates.pop("national_id", None)
+    if national_id is not None:
+        digits = re.sub(r"\D", "", national_id)
+        if len(digits) == 13:
+            new_hash = hash_national_id(digits)
+            duplicate = await session.scalar(
+                select(Patient.id).where(
+                    Patient.national_id_hash == new_hash,
+                    Patient.id != patient.id,
+                )
+            )
+            if duplicate:
+                raise HTTPException(status_code=409, detail="National ID already exists")
+            patient.national_id_hash = new_hash
+            patient.national_id_last4 = digits[-4:]
+            patient.national_id_valid = True
+            patient.national_id_invalid_value = None
+        else:
+            patient.national_id_hash = sha256(
+                f"invalid:{patient.id}:{national_id}".encode()
+            ).hexdigest()
+            patient.national_id_last4 = digits[-4:] if digits else ""
+            patient.national_id_valid = False
+            patient.national_id_invalid_value = national_id
+    for key, value in updates.items():
         setattr(patient, key, value)
     patient.version += 1
     add_audit(

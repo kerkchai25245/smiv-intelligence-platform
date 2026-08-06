@@ -22,6 +22,8 @@ class Patient(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "patients"
     national_id_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     national_id_last4: Mapped[str] = mapped_column(String(4))
+    national_id_valid: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    national_id_invalid_value: Mapped[str | None] = mapped_column(String(100), nullable=True)
     first_name: Mapped[str] = mapped_column(String(150), index=True)
     last_name: Mapped[str] = mapped_column(String(150), index=True)
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)

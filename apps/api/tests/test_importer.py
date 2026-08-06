@@ -1,4 +1,8 @@
-from app.services.importer import _canonical, _find_headers
+from io import BytesIO
+
+from openpyxl import Workbook
+
+from app.services.importer import _canonical, _find_headers, _parse_excel
 
 
 def test_common_thai_national_id_headers_are_supported() -> None:
@@ -49,3 +53,19 @@ def test_songkhla_workbook_headers_are_supported() -> None:
         "v3",
         "v4",
     ]
+
+
+def test_invalid_national_id_is_stored_with_warning() -> None:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["CID", "fullname", "SMI-V1"])
+    sheet.append(["12345", "Test Person", 1])
+    content = BytesIO()
+    workbook.save(content)
+
+    parsed, warnings, total = _parse_excel(content.getvalue())
+
+    assert total == 1
+    assert len(parsed) == 1
+    assert next(iter(parsed.values()))["national_id_valid"] is False
+    assert warnings[0]["stored"] is True

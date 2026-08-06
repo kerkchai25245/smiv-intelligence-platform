@@ -7,6 +7,7 @@ from app.models import Patient, PatientVersion
 def patient_snapshot(patient: Patient) -> dict[str, Any]:
     return {
         "national_id_last4": patient.national_id_last4,
+        "national_id_valid": patient.national_id_valid,
         "first_name": patient.first_name,
         "last_name": patient.last_name,
         "date_of_birth": patient.date_of_birth.isoformat() if patient.date_of_birth else None,
